@@ -51,7 +51,7 @@ func (p *Plugin) trackEntity(scope *gorm.Scope) {
 // Hook for after_create.
 func (p *Plugin) addCreated(scope *gorm.Scope) {
 	if isLoggable(scope.Value) && isEnabled(scope.Value) {
-		_ = addRecord(scope, actionCreate)
+		_ = addRecord(scope, actionCreate, p.context.Value(p.userKey).(string))
 	}
 }
 
@@ -70,18 +70,18 @@ func (p *Plugin) addUpdated(scope *gorm.Scope) {
 		}
 	}
 
-	_ = addUpdateRecord(scope, p.opts)
+	_ = addUpdateRecord(scope, p.context.Value(p.userKey).(string), p.opts)
 }
 
 // Hook for after_delete.
 func (p *Plugin) addDeleted(scope *gorm.Scope) {
 	if isLoggable(scope.Value) && isEnabled(scope.Value) {
-		_ = addRecord(scope, actionDelete)
+		_ = addRecord(scope, actionDelete, p.context.Value(p.userKey).(string))
 	}
 }
 
-func addUpdateRecord(scope *gorm.Scope, opts options) error {
-	cl, err := newChangeLog(scope, actionUpdate)
+func addUpdateRecord(scope *gorm.Scope, username string, opts options) error {
+	cl, err := newChangeLog(scope, actionUpdate, username)
 	if err != nil {
 		return err
 	}
@@ -102,7 +102,7 @@ func addUpdateRecord(scope *gorm.Scope, opts options) error {
 	return scope.DB().Create(cl).Error
 }
 
-func newChangeLog(scope *gorm.Scope, action string) (*ChangeLog, error) {
+func newChangeLog(scope *gorm.Scope, action, username string) (*ChangeLog, error) {
 	rawObject, err := json.Marshal(scope.Value)
 	if err != nil {
 		return nil, err
@@ -114,6 +114,7 @@ func newChangeLog(scope *gorm.Scope, action string) (*ChangeLog, error) {
 
 	return &ChangeLog{
 		ID:         id,
+		UserName:   username,
 		Action:     action,
 		ObjectID:   interfaceToString(scope.PrimaryKeyValue()),
 		ObjectType: scope.GetModelStruct().ModelType.Name(),
@@ -124,8 +125,8 @@ func newChangeLog(scope *gorm.Scope, action string) (*ChangeLog, error) {
 }
 
 // Writes new change log row to db.
-func addRecord(scope *gorm.Scope, action string) error {
-	cl, err := newChangeLog(scope, action)
+func addRecord(scope *gorm.Scope, action, username string) error {
+	cl, err := newChangeLog(scope, action, username)
 	if err != nil {
 		return nil
 	}

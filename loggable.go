@@ -43,6 +43,8 @@ type ChangeLog struct {
 	// Action type.
 	// On write, supports only 'create', 'update', 'delete',
 	// but on read can be anything.
+	UserName string
+
 	Action string
 	// ID of tracking object.
 	// By this ID later you can find all object (database row) changes.
@@ -53,13 +55,13 @@ type ChangeLog struct {
 	ObjectType string `gorm:"index"`
 	// Raw representation of tracking object.
 	// todo(@sas1024): Replace with []byte, to reduce allocations. Would be major version.
-	RawObject string `sql:"type:JSON"`
+	RawObject string `sql:"type:TEXT"`
 	// Raw representation of tracking object's meta.
 	// todo(@sas1024): Replace with []byte, to reduce allocations. Would be major version.
-	RawMeta string `sql:"type:JSON"`
+	RawMeta string `sql:"type:TEXT"`
 	// Raw representation of diff's.
 	// todo(@sas1024): Replace with []byte, to reduce allocations. Would be major version.
-	RawDiff string `sql:"type:JSON"`
+	RawDiff string `sql:"type:TEXT"`
 	// Free field to store something you want, e.g. who creates change log.
 	// Not used field in gorm-loggable, but gorm tracks this field.
 	CreatedBy string `gorm:"index"`

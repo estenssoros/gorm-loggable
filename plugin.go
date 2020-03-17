@@ -6,14 +6,20 @@ import (
 
 // Plugin is a hook for gorm.
 type Plugin struct {
-	db   *gorm.DB
-	opts options
+	db      *gorm.DB
+	opts    options
+	context Context
+	userKey string
+}
+
+type Context interface {
+	Value(interface{}) interface{}
 }
 
 // Register initializes Plugin for provided gorm.DB.
 // There is also available some options, that should be passed there.
 // Options cannot be set after initialization.
-func Register(db *gorm.DB, opts ...Option) (Plugin, error) {
+func Register(db *gorm.DB, c Context, opts ...Option) (Plugin, error) {
 	err := db.AutoMigrate(&ChangeLog{}).Error
 	if err != nil {
 		return Plugin{}, err
@@ -22,7 +28,7 @@ func Register(db *gorm.DB, opts ...Option) (Plugin, error) {
 	for _, option := range opts {
 		option(&o)
 	}
-	p := Plugin{db: db, opts: o}
+	p := Plugin{db: db, opts: o, context: c, userKey: "user"}
 	callback := db.Callback()
 	callback.Query().After("gorm:after_query").Register("loggable:query", p.trackEntity)
 	callback.Create().After("gorm:after_create").Register("loggable:create", p.addCreated)
