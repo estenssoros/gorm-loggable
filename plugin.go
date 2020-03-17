@@ -16,6 +16,8 @@ type Context interface {
 	Value(interface{}) interface{}
 }
 
+var defaultUserKey = "username"
+
 // Register initializes Plugin for provided gorm.DB.
 // There is also available some options, that should be passed there.
 // Options cannot be set after initialization.
@@ -28,7 +30,7 @@ func Register(db *gorm.DB, c Context, opts ...Option) (Plugin, error) {
 	for _, option := range opts {
 		option(&o)
 	}
-	p := Plugin{db: db, opts: o, context: c, userKey: "user"}
+	p := Plugin{db: db, opts: o, context: c, userKey: defaultUserKey}
 	callback := db.Callback()
 	callback.Query().After("gorm:after_query").Register("loggable:query", p.trackEntity)
 	callback.Create().After("gorm:after_create").Register("loggable:create", p.addCreated)
@@ -39,7 +41,7 @@ func Register(db *gorm.DB, c Context, opts ...Option) (Plugin, error) {
 
 // GetRecords returns all records by objectId.
 // Flag prepare allows to decode content of Raw* fields to direct fields, e.g. RawObject to Object.
-func (p *Plugin) GetRecords(objectId string, prepare bool) (changes []ChangeLog, err error) {
+func (p *Plugin) GetRecords(objectID string, prepare bool) (changes []ChangeLog, err error) {
 	defer func() {
 		if prepare {
 			for i := range changes {
@@ -58,12 +60,12 @@ func (p *Plugin) GetRecords(objectId string, prepare bool) (changes []ChangeLog,
 			}
 		}
 	}()
-	return changes, p.db.Where("object_id = ?", objectId).Find(&changes).Error
+	return changes, p.db.Where("object_id = ?", objectID).Find(&changes).Error
 }
 
 // GetLastRecord returns last by creation time (CreatedAt field) change log by provided object id.
 // Flag prepare allows to decode content of Raw* fields to direct fields, e.g. RawObject to Object.
-func (p *Plugin) GetLastRecord(objectId string, prepare bool) (change ChangeLog, err error) {
+func (p *Plugin) GetLastRecord(objectID string, prepare bool) (change ChangeLog, err error) {
 	defer func() {
 		if prepare {
 			if t, ok := p.opts.metaTypes[change.ObjectType]; ok {
@@ -80,5 +82,5 @@ func (p *Plugin) GetLastRecord(objectId string, prepare bool) (change ChangeLog,
 			}
 		}
 	}()
-	return change, p.db.Where("object_id = ?", objectId).Order("created_at DESC").Limit(1).Find(&change).Error
+	return change, p.db.Where("object_id = ?", objectID).Order("created_at DESC").Limit(1).Find(&change).Error
 }

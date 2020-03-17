@@ -51,7 +51,10 @@ func (p *Plugin) trackEntity(scope *gorm.Scope) {
 // Hook for after_create.
 func (p *Plugin) addCreated(scope *gorm.Scope) {
 	if isLoggable(scope.Value) && isEnabled(scope.Value) {
-		_ = addRecord(scope, actionCreate, p.context.Value(p.userKey).(string))
+		username, _ := p.context.Value(p.userKey).(string)
+		if err := addRecord(scope, actionCreate, username); err != nil {
+			panic(err)
+		}
 	}
 }
 
@@ -69,14 +72,19 @@ func (p *Plugin) addUpdated(scope *gorm.Scope) {
 			}
 		}
 	}
-
-	_ = addUpdateRecord(scope, p.context.Value(p.userKey).(string), p.opts)
+	username, _ := p.context.Value(p.userKey).(string)
+	if err := addUpdateRecord(scope, username, p.opts); err != nil {
+		panic(err)
+	}
 }
 
 // Hook for after_delete.
 func (p *Plugin) addDeleted(scope *gorm.Scope) {
 	if isLoggable(scope.Value) && isEnabled(scope.Value) {
-		_ = addRecord(scope, actionDelete, p.context.Value(p.userKey).(string))
+		username, _ := p.context.Value(p.userKey).(string)
+		if err := addRecord(scope, actionDelete, username); err != nil {
+			panic(err)
+		}
 	}
 }
 

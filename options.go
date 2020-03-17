@@ -15,7 +15,7 @@ type options struct {
 	computeDiff      bool
 }
 
-// Option ComputeDiff allows you also write differences between objects on update operations.
+// ComputeDiff allows you also write differences between objects on update operations.
 // ComputeDiff not reads records from db, it used only as cache on plugin side.
 // So it does not track changes outside plugin.
 func ComputeDiff() Option {
@@ -24,7 +24,7 @@ func ComputeDiff() Option {
 	}
 }
 
-// Option LazyUpdate allows you to skip update operations when nothing was changed.
+// LazyUpdate allows you to skip update operations when nothing was changed.
 // Parameter 'fields' is list of sql field names that should be ignored on updates.
 func LazyUpdate(fields ...string) Option {
 	return func(options *options) {
