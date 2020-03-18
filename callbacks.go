@@ -158,7 +158,7 @@ func computeUpdateDiff(scope *gorm.Scope) UpdateDiff {
 		ofv := ov.FieldByName(name).Interface()
 		nfv := nv.FieldByName(name).Interface()
 		if ofv != nfv {
-			diff[name] = nfv
+			diff[name] = map[string]interface{}{"old": ofv, "new": nfv}
 		}
 	}
 	return diff
