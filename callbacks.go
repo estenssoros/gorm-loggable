@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofrs/uuid"
 	"github.com/jinzhu/gorm"
+	"github.com/pkg/errors"
 )
 
 var im = newIdentityManager()
@@ -20,9 +21,9 @@ type UpdateDiff map[string]interface{}
 
 // Hook for after_query.
 func (p *Plugin) trackEntity(scope *gorm.Scope) {
-	if !isLoggable(scope.Value) || !isEnabled(scope.Value) {
-		return
-	}
+	// if !isLoggable(scope.Value) || !isEnabled(scope.Value) {
+	// 	return
+	// }
 
 	v := reflect.Indirect(reflect.ValueOf(scope.Value))
 
@@ -34,7 +35,6 @@ func (p *Plugin) trackEntity(scope *gorm.Scope) {
 			if !isLoggable(el) {
 				continue
 			}
-
 			im.save(el, sv.FieldByName(pkName))
 		}
 		return
@@ -51,7 +51,10 @@ func (p *Plugin) trackEntity(scope *gorm.Scope) {
 // Hook for after_create.
 func (p *Plugin) addCreated(scope *gorm.Scope) {
 	if isLoggable(scope.Value) && isEnabled(scope.Value) {
-		_ = addRecord(scope, actionCreate)
+		username, _ := p.context.Value(p.userKey).(string)
+		if err := addRecord(scope, actionCreate, username); err != nil {
+			scope.DB().AddError(err)
+		}
 	}
 }
 
@@ -68,27 +71,32 @@ func (p *Plugin) addUpdated(scope *gorm.Scope) {
 				return
 			}
 		}
+		scope.DB().AddError(err)
 	}
-
-	_ = addUpdateRecord(scope, p.opts)
+	username, _ := p.context.Value(p.userKey).(string)
+	if err := addUpdateRecord(scope, username, p.opts); err != nil {
+		scope.DB().AddError(err)
+	}
 }
 
 // Hook for after_delete.
 func (p *Plugin) addDeleted(scope *gorm.Scope) {
 	if isLoggable(scope.Value) && isEnabled(scope.Value) {
-		_ = addRecord(scope, actionDelete)
+		username, _ := p.context.Value(p.userKey).(string)
+		if err := addRecord(scope, actionDelete, username); err != nil {
+			scope.DB().AddError(err)
+		}
 	}
 }
 
-func addUpdateRecord(scope *gorm.Scope, opts options) error {
-	cl, err := newChangeLog(scope, actionUpdate)
+func addUpdateRecord(scope *gorm.Scope, username string, opts options) error {
+	cl, err := newChangeLog(scope, actionUpdate, username)
 	if err != nil {
 		return err
 	}
 
 	if opts.computeDiff {
 		diff := computeUpdateDiff(scope)
-
 		if diff != nil {
 			jd, err := json.Marshal(diff)
 			if err != nil {
@@ -102,7 +110,7 @@ func addUpdateRecord(scope *gorm.Scope, opts options) error {
 	return scope.DB().Create(cl).Error
 }
 
-func newChangeLog(scope *gorm.Scope, action string) (*ChangeLog, error) {
+func newChangeLog(scope *gorm.Scope, action, username string) (*ChangeLog, error) {
 	rawObject, err := json.Marshal(scope.Value)
 	if err != nil {
 		return nil, err
@@ -111,25 +119,28 @@ func newChangeLog(scope *gorm.Scope, action string) (*ChangeLog, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	meta, err := fetchChangeLogMeta(scope)
+	if err != nil {
+		return nil, errors.Wrap(err, "fetch changelog meta")
+	}
 	return &ChangeLog{
 		ID:         id,
+		UserName:   username,
 		Action:     action,
 		ObjectID:   interfaceToString(scope.PrimaryKeyValue()),
 		ObjectType: scope.GetModelStruct().ModelType.Name(),
 		RawObject:  string(rawObject),
-		RawMeta:    string(fetchChangeLogMeta(scope)),
+		RawMeta:    string(meta),
 		RawDiff:    "null",
 	}, nil
 }
 
 // Writes new change log row to db.
-func addRecord(scope *gorm.Scope, action string) error {
-	cl, err := newChangeLog(scope, action)
+func addRecord(scope *gorm.Scope, action, username string) error {
+	cl, err := newChangeLog(scope, action, username)
 	if err != nil {
-		return nil
+		return errors.Wrap(err, "new change log")
 	}
-
 	return scope.DB().Create(cl).Error
 }
 
@@ -138,20 +149,17 @@ func computeUpdateDiff(scope *gorm.Scope) UpdateDiff {
 	if old == nil {
 		return nil
 	}
-
 	ov := reflect.ValueOf(old)
 	nv := reflect.Indirect(reflect.ValueOf(scope.Value))
 	names := getLoggableFieldNames(old)
 
 	diff := make(UpdateDiff)
-
 	for _, name := range names {
 		ofv := ov.FieldByName(name).Interface()
 		nfv := nv.FieldByName(name).Interface()
 		if ofv != nfv {
-			diff[name] = nfv
+			diff[name] = map[string]interface{}{"old": ofv, "new": nfv}
 		}
 	}
-
 	return diff
 }

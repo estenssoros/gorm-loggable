@@ -48,7 +48,6 @@ func somethingToMapStringInterface(item interface{}) map[string]interface{} {
 		}
 		return somethingToMapStringInterface(data)
 	}
-	return nil
 }
 
 var ToSnakeCase = toSomeCase("_")
@@ -99,10 +98,9 @@ func getLoggableFieldNames(value interface{}) []string {
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
 		value, ok := field.Tag.Lookup(loggableTag)
-		if !ok || value != "true" {
+		if !ok || value != "true" || field.Name != "DeletedAt" {
 			continue
 		}
-
 		names = append(names, field.Name)
 	}
 

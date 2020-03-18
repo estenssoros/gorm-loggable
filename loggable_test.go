@@ -1,6 +1,7 @@
 package loggable
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"testing"
@@ -46,7 +47,7 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 	database = database.LogMode(true)
-	_, err = Register(database)
+	_, err = Register(database, context.Background())
 	if err != nil {
 		fmt.Println(err)
 		panic(err)
