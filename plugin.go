@@ -16,7 +16,7 @@ type Context interface {
 	Value(interface{}) interface{}
 }
 
-var defaultUserKey = "username"
+var defaultUserKey = "user"
 
 // Register initializes Plugin for provided gorm.DB.
 // There is also available some options, that should be passed there.
