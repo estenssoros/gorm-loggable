@@ -110,16 +110,16 @@ func interfaceToString(v interface{}) string {
 	}
 }
 
-func fetchChangeLogMeta(scope *gorm.Scope) []byte {
+func fetchChangeLogMeta(scope *gorm.Scope) ([]byte, error) {
 	val, ok := scope.Value.(Interface)
 	if !ok {
-		return nil
+		return nil, nil
 	}
 	data, err := json.Marshal(val.Meta())
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return data
+	return data, nil
 }
 
 func isLoggable(value interface{}) bool {

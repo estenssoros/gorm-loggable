@@ -102,7 +102,6 @@ func getLoggableFieldNames(value interface{}) []string {
 		if !ok || value != "true" {
 			continue
 		}
-
 		names = append(names, field.Name)
 	}
 
