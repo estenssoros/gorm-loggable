@@ -98,10 +98,10 @@ func getLoggableFieldNames(value interface{}) []string {
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
 		value, ok := field.Tag.Lookup(loggableTag)
-		if !ok || value != "true" || field.Name != "DeletedAt" {
-			continue
+		if (ok && value == "true") || field.Name == "DeletedAt" {
+			names = append(names, field.Name)
 		}
-		names = append(names, field.Name)
+		continue
 	}
 
 	return names
