@@ -29,6 +29,7 @@ func (im *identityManager) save(value, pk interface{}) error {
 		return err
 	}
 	im.m[genIdentityKey(t, pk)] = newValue
+
 	return nil
 }
 
