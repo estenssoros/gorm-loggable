@@ -5,11 +5,14 @@ import (
 	"encoding/hex"
 	"fmt"
 	"reflect"
+	"sync"
 
 	"github.com/jinzhu/copier"
 )
 
 type identityMap map[string]interface{}
+
+var lock sync.Mutex
 
 // identityManager is used as cache.
 type identityManager struct {
@@ -28,7 +31,10 @@ func (im *identityManager) save(value, pk interface{}) error {
 	if err := copier.Copy(&newValue, value); err != nil {
 		return err
 	}
+
+	lock.Lock()
 	im.m[genIdentityKey(t, pk)] = newValue
+	lock.Unlock()
 
 	return nil
 }
