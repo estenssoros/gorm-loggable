@@ -26,7 +26,7 @@ func newIdentityManager() *identityManager {
 }
 
 func (im *identityManager) save(value, pk interface{}) error {
-	t := reflect.TypeOf(value)
+	t := dePointerize(reflect.TypeOf(value))
 	newValue := reflect.New(t).Interface()
 	if err := copier.Copy(&newValue, value); err != nil {
 		return err
@@ -40,10 +40,7 @@ func (im *identityManager) save(value, pk interface{}) error {
 }
 
 func (im identityManager) get(value, pk interface{}) interface{} {
-	t := reflect.TypeOf(value)
-	if t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
+	t := dePointerize(reflect.TypeOf(value))
 	key := genIdentityKey(t, pk)
 	m, ok := im.m[key]
 	if !ok {
@@ -56,4 +53,16 @@ func genIdentityKey(t reflect.Type, pk interface{}) string {
 	key := fmt.Sprintf("%v_%s", pk, t.Name())
 	b := md5.Sum([]byte(key))
 	return hex.EncodeToString(b[:])
+}
+
+func dePointerize(t reflect.Type) reflect.Type {
+	for {
+		if t.Kind() == reflect.Ptr {
+			t = t.Elem()
+			continue
+		}
+		break
+	}
+
+	return t
 }
