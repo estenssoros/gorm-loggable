@@ -40,10 +40,10 @@ var defaultUserKey = "user"
 // There is also available some options, that should be passed there.
 // Options cannot be set after initialization.
 func Register(db *gorm.DB, opts ...Option) (*Plugin, error) {
-	err := db.AutoMigrate(&ChangeLog{}).Error
+	/*err := db.AutoMigrate(&ChangeLog{}).Error
 	if err != nil {
 		return nil, err
-	}
+	}*/
 	o := options{}
 	for _, option := range opts {
 		option(&o)
