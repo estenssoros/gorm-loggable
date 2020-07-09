@@ -97,6 +97,9 @@ func addUpdateRecord(scope *gorm.Scope, username string, opts options) error {
 
 	if opts.computeDiff {
 		diff := computeUpdateDiff(scope)
+		if len(diff) == 0 {
+			return nil
+		}
 		if diff != nil {
 			jd, err := json.Marshal(diff)
 			if err != nil {
@@ -152,7 +155,6 @@ func computeUpdateDiff(scope *gorm.Scope) UpdateDiff {
 	ov := reflect.ValueOf(old)
 	nv := reflect.Indirect(reflect.ValueOf(scope.Value))
 	names := getLoggableFieldNames(old)
-
 	diff := make(UpdateDiff)
 	for _, name := range names {
 		ofv := ov.FieldByName(name).Interface()
