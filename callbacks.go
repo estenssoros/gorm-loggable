@@ -27,6 +27,10 @@ func (p *Plugin) trackEntity(scope *gorm.Scope) {
 
 	v := reflect.Indirect(reflect.ValueOf(scope.Value))
 
+	if scope.PrimaryField() == nil {
+		return
+	}
+
 	pkName := scope.PrimaryField().Name
 	if v.Kind() == reflect.Slice {
 		for i := 0; i < v.Len(); i++ {
