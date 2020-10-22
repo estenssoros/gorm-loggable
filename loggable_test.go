@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/postgres"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
 
 var db *gorm.DB
@@ -31,27 +31,20 @@ func (m MetaModel) Meta() interface{} {
 
 func TestMain(m *testing.M) {
 	database, err := gorm.Open(
-		"postgres",
-		fmt.Sprintf(
-			"postgres://%s:%s@%s:%d/%s?sslmode=disable",
-			"root",
-			"keepitsimple",
-			"localhost",
-			5432,
-			"loggable",
-		),
+		mysql.Open("constring"),
+		&gorm.Config{},
 	)
 	if err != nil {
 		fmt.Println(err)
 		panic(err)
 	}
-	database = database.LogMode(true)
+	//database = database.Debug()
 	_, err = Register(database)
 	if err != nil {
 		fmt.Println(err)
 		panic(err)
 	}
-	err = database.AutoMigrate(SomeType{}).Error
+	err = database.AutoMigrate(SomeType{})
 	if err != nil {
 		fmt.Println(err)
 		panic(err)

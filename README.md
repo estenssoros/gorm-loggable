@@ -1,6 +1,6 @@
 # Loggable
 
-Loggable is used to helps tracking changes and history of your [GORM](https://github.com/jinzhu/gorm) models.
+Loggable is used to helps tracking changes and history of your [GORM](https://gorm.io/gorm) models.
 
 It creates `change_logs` table in your database and writes to all loggable models when they are changed.
 

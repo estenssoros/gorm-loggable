@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid"
-	"github.com/jinzhu/gorm"
+	"gorm.io/gorm"
 )
 
 // Interface is used to get metadata from your models.
@@ -25,7 +25,7 @@ type Interface interface {
 // LoggableModel is a root structure, which implement Interface.
 // Embed LoggableModel to your model so that Plugin starts tracking changes.
 type LoggableModel struct {
-	Disabled bool `sql:"-" json:"-"`
+	Disabled bool `sql:"-" json:"-" gorm:"-"`
 }
 
 func (LoggableModel) Meta() interface{} { return nil }
@@ -89,6 +89,11 @@ func (l *ChangeLog) prepareMeta(objType reflect.Type) error {
 	return err
 }
 
+//TableName is what gorm needs to work, how did it work without this
+func (l ChangeLog) TableName() string {
+	return "change_logs"
+}
+
 // Diff returns parsed to map[string]interface{} diff representation from field RawDiff.
 // To unmarshal diff to own structure, manually use field RawDiff.
 func (l ChangeLog) Diff() (UpdateDiff, error) {
@@ -110,8 +115,8 @@ func interfaceToString(v interface{}) string {
 	}
 }
 
-func fetchChangeLogMeta(scope *gorm.Scope) ([]byte, error) {
-	val, ok := scope.Value.(Interface)
+func fetchChangeLogMeta(db *gorm.DB) ([]byte, error) {
+	val, ok := db.Statement.ReflectValue.Interface().(Interface)
 	if !ok {
 		return nil, nil
 	}
