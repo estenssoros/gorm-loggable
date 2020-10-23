@@ -50,7 +50,7 @@ func Register(db *gorm.DB, opts ...Option) (*Plugin, error) {
 	}
 	p := Plugin{db: db, opts: o, Context: defaultContext(), userKey: defaultUserKey}
 	callback := db.Callback()
-	callback.Query().After("gorm:after_query").Register("loggable:query", p.trackEntity)
+	callback.Query().After("gorm:query").Register("loggable:after_query", p.trackEntity)
 	callback.Create().After("gorm:create").Register("loggable:after_create", p.addCreated)
 	callback.Update().After("gorm:update").Register("loggable:after_update", p.addUpdated)
 	return &p, nil
