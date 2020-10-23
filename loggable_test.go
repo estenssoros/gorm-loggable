@@ -14,7 +14,7 @@ var db *gorm.DB
 
 type SomeType struct {
 	gorm.Model
-	Source string
+	Source string `gorm-loggable:"true"`
 	MetaModel
 }
 
@@ -31,7 +31,7 @@ func (m MetaModel) Meta() interface{} {
 
 func TestMain(m *testing.M) {
 	database, err := gorm.Open(
-		mysql.Open("constring"),
+		mysql.Open("connstring"),
 		&gorm.Config{},
 	)
 	if err != nil {
@@ -39,7 +39,7 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 	//database = database.Debug()
-	_, err = Register(database)
+	_, err = Register(database, ComputeDiff())
 	if err != nil {
 		fmt.Println(err)
 		panic(err)
@@ -62,7 +62,14 @@ func TestTryModel(t *testing.T) {
 	}
 	fmt.Println(newmodel.ID)
 	newmodel.Source = "updated field"
-	err = db.Model(SomeType{}).Save(&newmodel).Error
+
+	m := SomeType{}
+	err = db.Find(&m, newmodel.ID).Error
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = db.Save(&newmodel).Error
 	if err != nil {
 		t.Fatal(err)
 	}

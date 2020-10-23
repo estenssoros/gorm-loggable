@@ -6,7 +6,6 @@ import (
 
 	"github.com/gofrs/uuid"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
 
@@ -51,16 +50,19 @@ func (p *Plugin) trackEntity(db *gorm.DB) {
 		return
 	}
 
-	im.save(db.Statement.ReflectValue, scope.PrioritizedPrimaryField.ReflectValueOf)
+	im.save(db.Statement.ReflectValue.Interface(), scope.PrioritizedPrimaryField.ReflectValueOf(db.Statement.ReflectValue).Interface())
 }
 
 // Hook for after_create.
 func (p *Plugin) addCreated(db *gorm.DB) {
 	v := db.Statement.ReflectValue.Interface()
 
+	tx := db.Begin()
+	defer tx.Commit()
+
 	if isLoggable(v) && isEnabled(v) {
 		username, _ := p.Context.Value(p.userKey).(string)
-		if err := addRecord(db, actionCreate, username); err != nil {
+		if err := addRecord(tx, actionCreate, username); err != nil {
 			db.AddError(err)
 		}
 	}
@@ -76,7 +78,7 @@ func (p *Plugin) addUpdated(db *gorm.DB) {
 	}
 
 	if p.opts.lazyUpdate {
-		record, err := p.GetLastRecord(interfaceToString(scope.PrioritizedPrimaryField.ReflectValueOf), false)
+		record, err := p.GetLastRecord(interfaceToString(scope.PrioritizedPrimaryField.ReflectValueOf(db.Statement.ReflectValue).Interface()), false)
 		if err == nil {
 			if isEqual(record.RawObject, v, p.opts.lazyUpdateFields...) {
 				return
@@ -85,15 +87,17 @@ func (p *Plugin) addUpdated(db *gorm.DB) {
 		db.AddError(err)
 	}
 	username, _ := p.Context.Value(p.userKey).(string)
-	if err := addUpdateRecord(db, username, p.opts); err != nil {
+
+	tx := db.Begin()
+	defer tx.Commit()
+
+	if err := addUpdateRecord(tx, username, p.opts); err != nil {
 		db.AddError(err)
 	}
 }
 
 func addUpdateRecord(db *gorm.DB, username string, opts options) error {
-	//logrus.Info("update")
 	cl, err := newChangeLog(db, actionUpdate, username)
-	//logrus.Infof("%+v\n::%s", cl, "update")
 	if err != nil {
 		return err
 	}
@@ -113,10 +117,7 @@ func addUpdateRecord(db *gorm.DB, username string, opts options) error {
 		}
 	}
 
-	err = db.Create(&cl).Error
-	//logrus.Info(err)
-
-	return err
+	return db.Table("change_logs").Model(ChangeLog{}).Create(cl).Error
 }
 
 func newChangeLog(db *gorm.DB, action, username string) (*ChangeLog, error) {
@@ -139,7 +140,7 @@ func newChangeLog(db *gorm.DB, action, username string) (*ChangeLog, error) {
 		ID:         id,
 		UserName:   username,
 		Action:     action,
-		ObjectID:   interfaceToString(scope.PrioritizedPrimaryField.ReflectValueOf),
+		ObjectID:   interfaceToString(scope.PrioritizedPrimaryField.ReflectValueOf(db.Statement.ReflectValue).Interface()),
 		ObjectType: scope.ModelType.Name(),
 		RawObject:  string(rawObject),
 		RawMeta:    string(meta),
@@ -149,22 +150,19 @@ func newChangeLog(db *gorm.DB, action, username string) (*ChangeLog, error) {
 
 // Writes new change log row to db.
 func addRecord(db *gorm.DB, action, username string) error {
-	logrus.Info("here")
 	cl, err := newChangeLog(db, action, username)
-	logrus.Infof("%+v\n::%s", cl, action)
 	if err != nil {
 		return errors.Wrap(err, "new change log")
 	}
 
-	err = db.Create(&cl).Error
-	logrus.Info(err)
-	return err
+	return db.Table("change_logs").Model(ChangeLog{}).Create(cl).Error
 }
 
 func computeUpdateDiff(db *gorm.DB) UpdateDiff {
 	v := db.Statement.ReflectValue.Interface()
 
-	old := im.get(v, db.Statement.Schema.PrioritizedPrimaryField.ReflectValueOf)
+	old := im.get(v, db.Statement.Schema.PrioritizedPrimaryField.ReflectValueOf(db.Statement.ReflectValue).Interface())
+
 	if old == nil {
 		return nil
 	}
@@ -179,5 +177,10 @@ func computeUpdateDiff(db *gorm.DB) UpdateDiff {
 			diff[name] = map[string]interface{}{"old": ofv, "new": nfv}
 		}
 	}
+
+	if len(diff) == 0 {
+		return nil
+	}
+
 	return diff
 }

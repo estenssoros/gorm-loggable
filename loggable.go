@@ -37,9 +37,9 @@ func (l LoggableModel) Enable(v bool)   { l.Disabled = !v }
 // Commonly, ChangeLog is stored in 'change_logs' table.
 type ChangeLog struct {
 	// Primary key of change logs.
-	ID uuid.UUID `gorm:"primary_key;"`
+	ID uuid.UUID `gorm:"primaryKey"`
 	// Timestamp, when change log was created.
-	CreatedAt time.Time `sql:"DEFAULT:current_timestamp"`
+	CreatedAt time.Time
 	// Action type.
 	// On write, supports only 'create', 'update', 'delete',
 	// but on read can be anything.
@@ -55,22 +55,22 @@ type ChangeLog struct {
 	ObjectType string `gorm:"index"`
 	// Raw representation of tracking object.
 	// todo(@sas1024): Replace with []byte, to reduce allocations. Would be major version.
-	RawObject string `sql:"type:TEXT"`
+	RawObject string
 	// Raw representation of tracking object's meta.
 	// todo(@sas1024): Replace with []byte, to reduce allocations. Would be major version.
-	RawMeta string `sql:"type:TEXT"`
+	RawMeta string
 	// Raw representation of diff's.
 	// todo(@sas1024): Replace with []byte, to reduce allocations. Would be major version.
-	RawDiff string `sql:"type:TEXT"`
+	RawDiff string
 	// Free field to store something you want, e.g. who creates change log.
 	// Not used field in gorm-loggable, but gorm tracks this field.
 	CreatedBy string `gorm:"index"`
 	// Field Object would contain prepared structure, parsed from RawObject as json.
 	// Use RegObjectType to register object types.
-	Object interface{} `sql:"-"`
+	Object interface{} `gorm:"-"`
 	// Field Meta would contain prepared structure, parsed from RawMeta as json.
 	// Use RegMetaType to register object's meta types.
-	Meta interface{} `sql:"-"`
+	Meta interface{} `gorm:"-"`
 }
 
 func (l *ChangeLog) prepareObject(objType reflect.Type) error {
