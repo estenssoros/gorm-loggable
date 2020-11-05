@@ -6,15 +6,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/postgres"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
 
 var db *gorm.DB
 
 type SomeType struct {
 	gorm.Model
-	Source string
+	Source string `gorm-loggable:"true"`
 	MetaModel
 }
 
@@ -31,27 +31,20 @@ func (m MetaModel) Meta() interface{} {
 
 func TestMain(m *testing.M) {
 	database, err := gorm.Open(
-		"postgres",
-		fmt.Sprintf(
-			"postgres://%s:%s@%s:%d/%s?sslmode=disable",
-			"root",
-			"keepitsimple",
-			"localhost",
-			5432,
-			"loggable",
-		),
+		mysql.Open("connstring"),
+		&gorm.Config{},
 	)
 	if err != nil {
 		fmt.Println(err)
 		panic(err)
 	}
-	database = database.LogMode(true)
-	_, err = Register(database)
+	//database = database.Debug()
+	_, err = Register(database, ComputeDiff())
 	if err != nil {
 		fmt.Println(err)
 		panic(err)
 	}
-	err = database.AutoMigrate(SomeType{}).Error
+	err = database.AutoMigrate(SomeType{})
 	if err != nil {
 		fmt.Println(err)
 		panic(err)
@@ -69,7 +62,14 @@ func TestTryModel(t *testing.T) {
 	}
 	fmt.Println(newmodel.ID)
 	newmodel.Source = "updated field"
-	err = db.Model(SomeType{}).Save(&newmodel).Error
+
+	m := SomeType{}
+	err = db.Find(&m, newmodel.ID).Error
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = db.Save(&newmodel).Error
 	if err != nil {
 		t.Fatal(err)
 	}
