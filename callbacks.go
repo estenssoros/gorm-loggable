@@ -2,8 +2,11 @@ package loggable
 
 import (
 	"encoding/json"
+	"math"
 	"reflect"
+	"time"
 
+	"github.com/estenssoros/dasorm/nulls"
 	"github.com/gofrs/uuid"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -57,12 +60,15 @@ func (p *Plugin) trackEntity(db *gorm.DB) {
 func (p *Plugin) addCreated(db *gorm.DB) {
 	v := db.Statement.ReflectValue.Interface()
 
-	tx := db.Begin()
-	defer tx.Commit()
-
 	if isLoggable(v) && isEnabled(v) {
+		old := im.get(v, db.Statement.Schema.PrioritizedPrimaryField.ReflectValueOf(db.Statement.ReflectValue).Interface())
+		if old != nil {
+			p.addUpdated(db)
+			return
+		}
+
 		username, _ := p.Context.Value(p.userKey).(string)
-		if err := addRecord(tx, actionCreate, username); err != nil {
+		if err := addRecord(db, actionCreate, username); err != nil {
 			db.AddError(err)
 		}
 	}
@@ -88,10 +94,7 @@ func (p *Plugin) addUpdated(db *gorm.DB) {
 	}
 	username, _ := p.Context.Value(p.userKey).(string)
 
-	tx := db.Begin()
-	defer tx.Commit()
-
-	if err := addUpdateRecord(tx, username, p.opts); err != nil {
+	if err := addUpdateRecord(db, username, p.opts); err != nil {
 		db.AddError(err)
 	}
 }
@@ -117,7 +120,7 @@ func addUpdateRecord(db *gorm.DB, username string, opts options) error {
 		}
 	}
 
-	return db.Table("change_logs").Model(ChangeLog{}).Create(cl).Error
+	return db.Debug().Exec(cl.Insert()).Error
 }
 
 func newChangeLog(db *gorm.DB, action, username string) (*ChangeLog, error) {
@@ -155,7 +158,7 @@ func addRecord(db *gorm.DB, action, username string) error {
 		return errors.Wrap(err, "new change log")
 	}
 
-	return db.Table("change_logs").Model(ChangeLog{}).Create(cl).Error
+	return db.Debug().Exec(cl.Insert()).Error
 }
 
 func computeUpdateDiff(db *gorm.DB) UpdateDiff {
@@ -173,9 +176,31 @@ func computeUpdateDiff(db *gorm.DB) UpdateDiff {
 	for _, name := range names {
 		ofv := ov.FieldByName(name).Interface()
 		nfv := nv.FieldByName(name).Interface()
-		if ofv != nfv {
-			diff[name] = map[string]interface{}{"old": ofv, "new": nfv}
+		switch ofv.(type) {
+		case nulls.Time:
+			if !ofv.(nulls.Time).Time.Equal(nfv.(nulls.Time).Time) {
+				diff[name] = map[string]interface{}{"old": ofv, "new": nfv}
+			}
+		case *time.Time:
+			if !ofv.(*time.Time).Equal(*nfv.(*time.Time)) {
+				diff[name] = map[string]interface{}{"old": ofv, "new": nfv}
+			}
+		case nulls.Float64:
+			epsilon := .01
+			if math.Abs(ofv.(nulls.Float64).Float64-nfv.(nulls.Float64).Float64) > epsilon {
+				diff[name] = map[string]interface{}{"old": ofv, "new": nfv}
+			}
+		case float64:
+			epsilon := .01
+			if math.Abs(ofv.(float64)-nfv.(float64)) > epsilon {
+				diff[name] = map[string]interface{}{"old": ofv, "new": nfv}
+			}
+		default:
+			if ofv != nfv {
+				diff[name] = map[string]interface{}{"old": ofv, "new": nfv}
+			}
 		}
+
 	}
 
 	if len(diff) == 0 {

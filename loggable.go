@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/gofrs/uuid"
@@ -94,6 +95,44 @@ func (l ChangeLog) TableName() string {
 	return "change_logs"
 }
 
+//Insert creates the sql for inserting a record
+func (l *ChangeLog) Insert() string {
+	return fmt.Sprintf(`
+	INSERT INTO change_logs(id
+		, created_at
+		, user_name
+		, action
+		, object_id
+		, object_type
+		, raw_object
+		, raw_meta
+		, raw_diff
+		, created_by
+	) VALUES ('%s'
+		, '%s'
+		, '%s'
+		, '%s'
+		, '%s'
+		, '%s'
+		, '%s'
+		, '%s'
+		, '%s'
+		, '%s'
+	)
+	`,
+		l.ID.String(),
+		time.Now().Format("2006-01-02 15:04:05"),
+		l.UserName,
+		l.Action,
+		l.ObjectID,
+		l.ObjectType,
+		escape(l.RawObject),
+		escape(l.RawMeta),
+		escape(l.RawDiff),
+		l.CreatedBy,
+	)
+}
+
 // Diff returns parsed to map[string]interface{} diff representation from field RawDiff.
 // To unmarshal diff to own structure, manually use field RawDiff.
 func (l ChangeLog) Diff() (UpdateDiff, error) {
@@ -135,4 +174,9 @@ func isLoggable(value interface{}) bool {
 func isEnabled(value interface{}) bool {
 	v, ok := value.(Interface)
 	return ok && v.isEnabled()
+}
+
+func escape(in string) string {
+	in = strings.Replace(in, "'", "\\'", -1)
+	return in
 }
